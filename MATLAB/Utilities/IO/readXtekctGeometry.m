@@ -7,7 +7,7 @@ filexct=mylist{filexct};
 
 fid=fopen([fpath,'\',filexct]);
 if(fid==-1)
-   error('Wrong file path');
+    error('Wrong file path');
 end
 xtekctText = textscan(fid, '%s %s', 'Delimiter', '=', 'HeaderLines', 1, 'CommentStyle', '[');
 fclose(fid);
@@ -15,10 +15,10 @@ fclose(fid);
 %% Detector information
 % Number of pixel in the detector
 geo.nDetector=[str2double(xtekctText{2}(strcmp('DetectorPixelsX', xtekctText{1})));
-               str2double(xtekctText{2}(strcmp('DetectorPixelsY', xtekctText{1})))  ];
-% Size of pixels in the detector       
+    str2double(xtekctText{2}(strcmp('DetectorPixelsY', xtekctText{1})))  ];
+% Size of pixels in the detector
 geo.dDetector=[str2double(xtekctText{2}(strcmp('DetectorPixelSizeX', xtekctText{1})));
-               str2double(xtekctText{2}(strcmp('DetectorPixelSizeY', xtekctText{1})))  ];
+    str2double(xtekctText{2}(strcmp('DetectorPixelSizeY', xtekctText{1})))  ];
 % Total size of the detector
 geo.sDetector=geo.nDetector.*geo.dDetector;
 
@@ -31,25 +31,25 @@ geo.sDetector=geo.nDetector.*geo.dDetector;
 % Please contact tigre.toolbox@gmail.com if this doesnt work/you have more
 % information
 geo.offDetector=[str2double(xtekctText{2}(strcmp('DetectorOffsetX', xtekctText{1})));
-                 str2double(xtekctText{2}(strcmp('DetectorOffsetY', xtekctText{1})))  ];
-           
+    str2double(xtekctText{2}(strcmp('DetectorOffsetY', xtekctText{1})))  ];
+
 %% Image information
 % Number of pixel in the detector
 geo.nVoxel=[str2double(xtekctText{2}(strcmp('VoxelsX', xtekctText{1})));
-               str2double(xtekctText{2}(strcmp('VoxelsY', xtekctText{1})));
-               str2double(xtekctText{2}(strcmp('VoxelsZ', xtekctText{1}))) ];
-% Size of each pixel           
+    str2double(xtekctText{2}(strcmp('VoxelsY', xtekctText{1})));
+    str2double(xtekctText{2}(strcmp('VoxelsZ', xtekctText{1}))) ];
+% Size of each pixel
 geo.dVoxel=[str2double(xtekctText{2}(strcmp('VoxelSizeX', xtekctText{1})));
-               str2double(xtekctText{2}(strcmp('VoxelSizeY', xtekctText{1})));
-               str2double(xtekctText{2}(strcmp('VoxelSizeZ', xtekctText{1}))) ];
-% Size of the image in mm           
+    str2double(xtekctText{2}(strcmp('VoxelSizeY', xtekctText{1})));
+    str2double(xtekctText{2}(strcmp('VoxelSizeZ', xtekctText{1}))) ];
+% Size of the image in mm
 geo.sVoxel=geo.nVoxel.*geo.dVoxel;
 geo.offOrigin=[0;0;0];
 warning('The image size has been untouched. Often this is bigger than what TIGRE v1.1.X can handle. Consider changing the number of voxels.')
 %% Global geometry
 geo.DSO=str2double(xtekctText{2}(strcmp('SrcToObject', xtekctText{1})));
 geo.DSD=str2double(xtekctText{2}(strcmp('SrcToDetector', xtekctText{1})));
-geo.COR=-str2double(xtekctText{2}(strcmp('CentreOfRotationTop', xtekctText{1})));
+geo.COR=-str2double(xtekctText{2}(strcmp('CentreOfRotation', xtekctText{1})));
 if (geo.COR==0)
     warning('Centre of Rotation seems to be zero. Make sure that it is true and that the machine did not omit that information. Consider computing the COR with computeCOR() function.');
 else
@@ -61,12 +61,18 @@ whitelevel=str2double(xtekctText{2}(strcmp('WhiteLevel', xtekctText{1})));
 
 %% angles
 filexct=find(~cellfun('isempty', strfind(mylist,'.ang'))',1);
-filexct=mylist{filexct};
-fid=fopen([fpath,'\',filexct]);
-xtekctText = textscan(fid, '%s %s', 'Delimiter', '\t', 'HeaderLines', 1);
-fclose(fid);
-angles=str2double(xtekctText{2})*pi/180;
-angles=angles';
-
-
+if ~isempty(filexct)
+    filexct=mylist{filexct};
+    fid=fopen([fpath,'\',filexct]);
+    xtekctText = textscan(fid, '%s %s', 'Delimiter', '\t', 'HeaderLines', 1);
+    fclose(fid);
+    angles=str2double(xtekctText{2})*pi/180;
+    angles=angles';
+else
+    anlge_step=str2double(xtekctText{2}(strcmp('AngularStep', xtekctText{1})));
+    initial_angle=str2double(xtekctText{2}(strcmp('InitialAngle', xtekctText{1})));
+    n_angles=str2double(xtekctText{2}(strcmp('Projections', xtekctText{1})));
+    angles=(initial_angle:anlge_step:(initial_angle-anlge_step+360))*pi/180;
+    assert(size(angles,2)==n_angles,'Assertion failed: Inconsistent data detected. Number of projections and angle information do not match\n');
+end
 end

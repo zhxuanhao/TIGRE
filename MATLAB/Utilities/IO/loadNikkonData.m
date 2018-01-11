@@ -8,15 +8,11 @@ idx=1:steps:steps*nsamples;
 %% get filename
 % assuming TIF and 4 digits.
 
-mylist=cellstr(ls(fpath));
-firstfile=find(~cellfun('isempty', strfind(mylist,'tif'))',1);
-firstfile=mylist{firstfile};
-filename=firstfile(1:end-8);
-
+myfiles = dir(fullfile([fpath,'\', '*.tif']));
 %% load images
 proj=[];
 for ii=1:nsamples
-     proj(:,:,ii)=single(imread([fpath, '\' filename,num2str(idx(ii),'%04d'),'.tif']));
+     proj(:,:,ii)=single(imread([fpath, '\' myfiles(idx(ii)).name]));
 end
 %% Beer lambert
 proj=-log(proj/single(whitelevel));
