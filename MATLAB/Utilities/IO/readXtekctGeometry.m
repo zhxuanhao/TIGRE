@@ -59,7 +59,11 @@ end
 
 whitelevel=str2double(xtekctText{2}(strcmp('WhiteLevel', xtekctText{1})));
 
+
 %% angles
+% It can be either an .ang  or .txt file
+% .ang
+
 filexct=find(~cellfun('isempty', strfind(mylist,'.ang'))',1);
 if ~isempty(filexct)
     filexct=mylist{filexct};
@@ -67,12 +71,23 @@ if ~isempty(filexct)
     xtekctText = textscan(fid, '%s %s', 'Delimiter', '\t', 'HeaderLines', 1);
     fclose(fid);
     angles=str2double(xtekctText{2})*pi/180;
-    angles=angles';
-else
-    anlge_step=str2double(xtekctText{2}(strcmp('AngularStep', xtekctText{1})));
-    initial_angle=str2double(xtekctText{2}(strcmp('InitialAngle', xtekctText{1})));
-    n_angles=str2double(xtekctText{2}(strcmp('Projections', xtekctText{1})));
-    angles=(initial_angle:anlge_step:(initial_angle-anlge_step+360))*pi/180;
-    assert(size(angles,2)==n_angles,'Assertion failed: Inconsistent data detected. Number of projections and angle information do not match\n');
+    return
 end
+% ._ctdata.txt
+filexct=find(~cellfun('isempty', strfind(mylist,'_ctdata.txt'))',1);
+if ~isempty(filexct)
+    fid=fopen(mylist{filexct});
+    xtekctText = textscan(fid, '%s %s %s', 'Delimiter', '\t', 'HeaderLines', 3);
+    fclose(fid);
+    angles=str2double(xtekctText{3})*pi/180;
+    angles=angles*pi/180;
+    angles=angles';
+    return
+end
+anlge_step=str2double(xtekctText{2}(strcmp('AngularStep', xtekctText{1})));
+initial_angle=str2double(xtekctText{2}(strcmp('InitialAngle', xtekctText{1})));
+n_angles=str2double(xtekctText{2}(strcmp('Projections', xtekctText{1})));
+angles=(initial_angle:anlge_step:(initial_angle-anlge_step+360))*pi/180;
+assert(size(angles,2)==n_angles,'Assertion failed: Inconsistent data detected. Number of projections and angle information do not match\n');
+
 end
