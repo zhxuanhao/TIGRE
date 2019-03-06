@@ -51,7 +51,7 @@ Codes  : https://github.com/CERN/TIGRE
 #include "voxel_backprojection.hpp"
 #include "voxel_backprojection_parallel.hpp"
 
-#include "mex.h"
+#include <stdio.h>
 #include <math.h>
 
 // https://stackoverflow.com/questions/16282136/is-there-a-cuda-equivalent-of-perror
@@ -59,8 +59,8 @@ Codes  : https://github.com/CERN/TIGRE
 do { \
         cudaError_t __err = cudaGetLastError(); \
         if (__err != cudaSuccess) { \
-                mexPrintf("%s \n",msg);\
-                mexErrMsgIdAndTxt("CBCT:CUDA:Atb",cudaGetErrorString(__err));\
+                printf("%s \n",msg);\
+                printf("CBCT:CUDA:Atb",cudaGetErrorString(__err));\
         } \
 } while (0)
     
@@ -418,7 +418,7 @@ int voxel_backprojection_parallel(float const * const projections, Geometry geo,
         cudaEventRecord(stop,0);
         cudaEventSynchronize(stop);
         cudaEventElapsedTime(&elapsedTime, start,stop);
-        mexPrintf("%f\n" ,elapsedTime);
+        printf("%f\n" ,elapsedTime);
         cudaCheckErrors("cuda Timing fail");
         
     }
@@ -463,7 +463,7 @@ void computeDeltasCubeParallel(Geometry geo, float alpha,int i, Point3D* xyzorig
     Pz.z =Pz.z-geo.offDetecV[i];          Pz.y =Pz.y-geo.offDetecU[i];
 
     
-//       mexPrintf("%f,%f,%f\n",source.x,source.y,source.z);
+//       printf("%f,%f,%f\n",source.x,source.y,source.z);
     // Scale coords so detector pixels are 1x1
     
     P.z =P.z /geo.dDetecV;                          P.y =P.y/geo.dDetecU;
