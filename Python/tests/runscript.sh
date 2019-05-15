@@ -1,7 +1,6 @@
 #!/bin/bash
 
 control_c() {
-    python $DIR/test_config1.py
     rm $DIR/*.npy
     exit
 }
@@ -10,15 +9,15 @@ trap control_c SIGINT
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
-# MAKE new test file and save what test we are on (targetdir)
+# make new test file and save what test we are on (targetdir)
 
 python $DIR/make_output_directory.py
 
-# MAKE configurations
+# make configurations
 
 python $DIR/generate_configurations.py
 
-# DECIDE what tests to run
+# decide what tests to run
 # TODO: for now this is hardcoded but it should check the gitrepo for changes and run tests accordingly
 
 
@@ -35,25 +34,13 @@ for i in "${algs[@]}";
 			done
 	done
 
-	
-
-
-
-
-
-
-
 # run other tests
 
-
-
-
-
 # assert true or false for output of test files and publish to xml
-python $DIR/test_config1.py
-python $DIR/test_config2.py
-python $DIR/test_config3.py
-python $DIR/test_config4.py
+ python $DIR/test_config1.py
+ python $DIR/test_config2.py
+ python $DIR/test_config3.py
+ python $DIR/test_config4.py
 # https://stackoverflow.com/questions/11241781/python-unittests-in-jenkins
 
 
