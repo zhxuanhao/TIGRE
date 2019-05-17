@@ -111,8 +111,7 @@ __global__ void kernelPixelDetector_parallel( Geometry geo,
     
     unsigned long y = blockIdx.y * blockDim.y + threadIdx.y;
     unsigned long x = blockIdx.x * blockDim.x + threadIdx.x;
-    unsigned long projNumber= blockIdx.z * blockDim.z + threadIdx.z;
-    projNumber=threadIdx.z;
+    unsigned long projNumber=threadIdx.z;
             
     if ((x>= geo.nDetecU) | (y>= geo.nDetecV)|  (projNumber>=PROJ_PER_BLOCK))
         return;
@@ -324,7 +323,7 @@ int siddon_ray_projection_parallel(float  *  img, Geometry geo, float** result,f
         
          for(unsigned int j=0; j<PROJ_PER_BLOCK; j++){
             proj_global=i*PROJ_PER_BLOCK+j;
-            if (proj_global>nangles)
+            if (proj_global>=nangles)
                break;
             geo.alpha=angles[proj_global*3];
             geo.theta=angles[proj_global*3+1];
@@ -364,13 +363,14 @@ int siddon_ray_projection_parallel(float  *  img, Geometry geo, float** result,f
     cudaFree(dProjection[0]);
     cudaFree(dProjection[1]);
     free(dProjection);
+    cudaFreeHost(projParamsArrayHost);
     cudaCheckErrors("cudaFree d_imagedata fail");
     
     
     for (int i = 0; i < 2; ++i){
       cudaStreamDestroy(stream[i]);
     }
-    cudaDeviceReset();
+//     cudaDeviceReset();
     return 0;
 }
 
@@ -512,4 +512,5 @@ float maxDistanceCubeXY(Geometry geo, float angles,int i){
     return geo.DSO[i]/geo.dVoxelX-sqrt(maxCubX*maxCubX+maxCubY*maxCubY);
     
 }
+
 #endif

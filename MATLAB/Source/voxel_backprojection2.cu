@@ -236,13 +236,13 @@ __global__ void kernelPixelBackprojection(const Geometry geo, float* image,const
             vectZ=(P.z -S.z);
             
             // Get the coordinates in the detector UV where the mid point of the voxel is projected.
-            float t=(DSO-DSD /*-DOD*/ - S.x)/vectX;
+            float t=__fdividef(DSO-DSD-S.x,vectX);
             float y,z;
             y=vectY*t+S.y;
             z=vectZ*t+S.z;
             float u,v;
-            u=y+geo.nDetecU/2.0f;
-            v=z+geo.nDetecV/2.0f;
+            u=y+(float)geo.nDetecU*0.5f;
+            v=z+(float)geo.nDetecV*0.5f;
             float sample=tex3D<float>(tex, v, u ,indAlpha+0.5f);
             float weigth=0;
             //
@@ -259,18 +259,19 @@ __global__ void kernelPixelBackprojection(const Geometry geo, float* image,const
             
             
             
-            realDaux.y=-geo.sDetecU/2.0f+geo.dDetecU/2.0f + u*geo.dDetecU +uv0Offset.x;
-            realD.z   =-geo.sDetecV/2.0f+geo.dDetecV/2.0f + v*geo.dDetecV +uv0Offset.y;
+            realDaux.y=(-geo.sDetecU+geo.dDetecU)*0.5f + u*geo.dDetecU +uv0Offset.x;
+            realD.z   =(-geo.sDetecV+geo.dDetecV)*0.5f + v*geo.dDetecV +uv0Offset.y;
             //rotate the detector
             realD.x= realDaux.x*cosalpha  + realDaux.y*sinalpha; //sin(-x)=-sin(x) , cos(-x)=cos(x)
             realD.y=-realDaux.x*sinalpha  + realDaux.y*cosalpha; //sin(-x)=-sin(x) , cos(-x)=cos(x)
             float L,lsq;
             
-            L = sqrt( (realS.x-realD.x)*(realS.x-realD.x)+ (realS.y-realD.y)*(realS.y-realD.y)+ (realD.z)*(realD.z)); // Sz=0 always.
+            L = __fsqrt_rd( (realS.x-realD.x)*(realS.x-realD.x)+ (realS.y-realD.y)*(realS.y-realD.y)+ (realD.z)*(realD.z)); // Sz=0 always.
             lsq =  (realS.x-realvoxel.x)*(realS.x-realvoxel.x)
             + (realS.y-realvoxel.y)*(realS.y-realvoxel.y)
             + (realS.z-realvoxel.z)*(realS.z-realvoxel.z);
-            weigth=L*L*L/(DSD*lsq);
+            
+            weigth=__fdividef(L*L*L,(DSD*lsq));
 //             weigth=1;
             // Get Value in the computed (U,V) and multiply by the corresponding weigth.
             // indAlpha is the ABSOLUTE number of projection in the projection array (NOT the current number of projection set!)
@@ -499,7 +500,7 @@ int voxel_backprojection2(float * projections, Geometry geo, float* result,float
                     
                     // Since we'll have multiple projections processed by a SINGLE kernel call, compute how many
                     // kernel calls we'll need altogether.
-                    unsigned int noOfKernelCalls = (current_proj_overlap_split_size+PROJ_PER_KERNEL-1)/PROJ_PER_KERNEL;  // We'll take care of bounds checking inside the loop if nalpha is not divisible by PROJ_PER_KERNEL
+                    unsigned int noOfKernelCalls = (proj_split_size[proj_block_split]+PROJ_PER_KERNEL-1)/PROJ_PER_KERNEL;  // We'll take care of bounds checking inside the loop if nalpha is not divisible by PROJ_PER_KERNEL
                     for (unsigned int i=0; i<noOfKernelCalls; i++){
                         
                         // Now we need to generate and copy all data for PROJ_PER_KERNEL projections to constant memory so that our kernel can use it
@@ -510,7 +511,7 @@ int voxel_backprojection2(float * projections, Geometry geo, float* result,float
                             unsigned int currProjNumber_global=i*PROJ_PER_KERNEL+j                                                                          // index within kernel
                                     +proj*(nalpha+split_projections-1)/split_projections                                          // index of the global projection split
                                     +proj_block_split*max(current_proj_split_size/proj_split_overlap_number,PROJ_PER_KERNEL); // indexof overlap current split
-                            if(currProjNumber_slice>=current_proj_overlap_split_size)
+                            if(currProjNumber_slice>=proj_split_size[proj_block_split])
                                 break;  // Exit the loop. Even when we leave the param arrays only partially filled, this is OK, since the kernel will check bounds anyway.
                             if(currProjNumber_global>=nalpha)
                                 break;  // Exit the loop. Even when we leave the param arrays only partially filled, this is OK, since the kernel will check bounds anyway.
@@ -555,7 +556,7 @@ int voxel_backprojection2(float * projections, Geometry geo, float* result,float
                         cudaMemcpyToSymbolAsync(projSinCosArray2Dev, projSinCosArray2Host, sizeof(float)*5*PROJ_PER_KERNEL,0,cudaMemcpyHostToDevice,stream[dev*nStreamDevice]);
                         cudaMemcpyToSymbolAsync(projParamsArray2Dev, projParamsArray2Host, sizeof(Point3D)*7*PROJ_PER_KERNEL,0,cudaMemcpyHostToDevice,stream[dev*nStreamDevice]);
                         cudaStreamSynchronize(stream[dev*nStreamDevice]);
-                        kernelPixelBackprojection<<<grid,block,0,stream[dev*nStreamDevice]>>>(geoArray[img_slice*deviceCount+dev],dimage[dev],i,current_proj_overlap_split_size,texProj[(proj_block_split%2)*deviceCount+dev]);
+                        kernelPixelBackprojection<<<grid,block,0,stream[dev*nStreamDevice]>>>(geoArray[img_slice*deviceCount+dev],dimage[dev],i,proj_split_size[proj_block_split],texProj[(proj_block_split%2)*deviceCount+dev]);
                         
                     }  // END for
                     //////////////////////////////////////////////////////////////////////////////////////
@@ -589,8 +590,10 @@ int voxel_backprojection2(float * projections, Geometry geo, float* result,float
     
     
     // Clean the GPU
-    for(unsigned int i=0; i<2;i++){ // 2 buffers
-        for (dev = 0; dev < deviceCount; dev++){
+    bool two_buffers_used=((((nalpha+split_projections-1)/split_projections)+PROJ_PER_KERNEL-1)/PROJ_PER_KERNEL)>1;
+    for(unsigned int i=0; i<2;i++){ // 2 buffers (if needed, maybe only 1)
+        if (!two_buffers_used && i==1)
+            break;        for (dev = 0; dev < deviceCount; dev++){
             cudaSetDevice(dev);
             cudaDestroyTextureObject(texProj[i*deviceCount+dev]);
             cudaFreeArray(d_cuArrTex[i*deviceCount+dev]);
@@ -623,7 +626,7 @@ int voxel_backprojection2(float * projections, Geometry geo, float* result,float
     
     cudaCheckErrors("cudaFree fail");
     
-    cudaDeviceReset(); // For the Nvidia Visual Profiler
+//     cudaDeviceReset(); // For the Nvidia Visual Profiler
     return 0;
     
 }  // END voxel_backprojection
