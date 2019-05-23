@@ -1,4 +1,4 @@
-function [res,Fs,Qs] = FISTA_BT(proj,geo,angles,niter,hyper,eta)
+function [res,stepvals] = FISTA_BT(proj,geo,angles,niter,hyper,eta)
 % FISTA is a quadratically converging algorithm that relies on the hyper
 % parameter named 'hyper'. This parameter should approximate the largest 
 % eigenvalue in the A matrix in the equation Ax-b and Atb. Empirical tests
@@ -26,41 +26,59 @@ lambda = 0.01;
 res = zeros(geo.nVoxel','single');
 x_rec = res;
 L = hyper;
-Qs = [];
-Fs = [];
-old_diffFQ = inf;
+stepvals = []
+
+oldDiff = 0;
 for ii = 1:niter
     Lbar = L; 
-    if (ii == 1) || (toc >30); 
+    if (ii == 1); 
         disp('Estimating maximum value of L.');
-    end
-    jj = 1;
-    while true
-        tic;
-        lambda0 = lambda/Lbar; 
-        zk = res - 1/Lbar*Atb(proj - Ax(res,geo,angles),geo,angles);
-        calc_f = proj-Ax(zk,geo,angles);
-        F = 0.5*norm(calc_f(:)) + norm(lambda0*res(:),1);
-        Q = calc_Q(proj, geo, angles, zk, res, Lbar,lambda0);
-        if mod(jj,2) == 0;
-            fprintf('L: %e | iteration: %d | Time(s)/iter: %.2f\n',L, jj,toc)
+        jj = 1;
+        while true
+            tic;
+            lambda0 = lambda/Lbar; 
+            zk = res - 1/Lbar*Atb(proj - Ax(res,geo,angles),geo,angles);
+            calc_f = proj-Ax(zk,geo,angles);
+            F = 0.5*norm(calc_f(:)) + norm(lambda0*res(:),1);
+            Q = calc_Q(proj, geo, angles, zk, res, Lbar,lambda0);
+            if mod(jj,2) == 0;
+                fprintf('L: %e | iteration: %d | Time(s)/iter: %.2f\n',L, jj,toc)
+            end
+            if F <= Q
+                break;
+            end
+            Lbar = Lbar*eta; 
+            L = Lbar;
+            jj = jj +1;
         end
-        Fs = [Fs;F];
-        Qs = [Qs;Q];
-        if F <= Q
-            break;
-        end
-        Lbar = Lbar*eta; 
-        L = Lbar;
-        jj = jj +1;
     end
     
     bm = 1/L;
     t = 1;
-    
-    % gradient descent step
-    res = res + bm * 2 * Atb(proj - Ax(res,geo,angles, 'ray-voxel'), geo, angles, 'matched');
     lambdaforTV = 2* bm* lambda;
+    
+    fwd_proj = proj - Ax(res,geo,angles, 'ray-voxel');
+    newStepVal = lambdaforTV * im3Dnorm(res,'TV','forward') +norm(fwd_proj(:),2);
+    
+    if ii == 1; oldStepVal = newStepVal;end
+    
+    newDiff = abs(oldStepVal - newStepVal)/newStepVal;
+    if newDiff >= oldDiff
+        
+        L = L*0.9;
+        fprintf('L: %e | ii: %d | old: %f | new: %f \n',L, ii,oldDiff,newDiff);
+        bm = 1/L;
+        lambdaforTV = 2* bm* lambda;
+    elseif newDiff <=0.95*oldDiff
+        L = L*1.1
+        bm = 1/L;
+        lambdaforTV = 2* bm* lambda;
+    end
+    stepvals = [stepvals;newStepVal];
+    oldDiff = newDiff;
+    oldStepVal = newStepVal;
+    % gradient descent step
+    res = res + bm * 2 * Atb(fwd_proj, geo, angles, 'matched');
     x_recold = x_rec;
     x_rec = im3DDenoise(res,'TV',20,1/lambdaforTV);  
     told = t;
