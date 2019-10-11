@@ -97,7 +97,7 @@ Im=I0*exp(-proj/max(proj(:)));
 % Photon noise + electronic noise
 if areTheseToolboxesInstalled({'MATLAB','Image Processing Toolbox'})
     Im=imnoise(Im/I0,'poisson')*I0;
-    Im=imnoise(Im/I0,'gaussian',m,sigma/I0)*I0;
+    Im=imnoise(Im/I0,'gaussian',m,sigma/I0)*I0;%sigma is Variance????
 elseif areTheseToolboxesInstalled({'MATLAB','Statistics Toolbox'}) || areTheseToolboxesInstalled({'MATLAB','Statistics and Machine Learning Toolbox'})
     Im=poissrnd(Im)+randn(size(Im)).*sigma + m;
 else
